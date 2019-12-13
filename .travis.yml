@@ -37,6 +37,7 @@ before_install:
   - sudo apt-get install qt5-default
   - ./build.sh
   - cd ..
+  - cd ..
 
 
 install:
