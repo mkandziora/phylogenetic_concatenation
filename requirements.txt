@@ -5,5 +5,5 @@ coverage>=4.4
 pandas
 biopython
 pytest
-/home/blubb/sync-TP-T470s/ncbiTAXONparser
-/home/blubb/sync-TP-T470s/PANDAS_phyfilter_v1/
+pip install git+ssh://git@github.com/blubbundbla/ncbiTAXONparser.git
+pip install git+ssh://git@github.com/blubbundbla/PhylUp_remote.git
