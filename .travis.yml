@@ -1,0 +1,85 @@
+language: python
+python:
+  - "3.5"
+# command to install dependencies
+
+before_install:
+  - sudo apt-get update
+
+  # get newer cmake version for raxml-ng
+  # first we create a directory for the CMake binaries
+  - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+  - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
+  # we use wget to fetch the cmake binaries
+  - travis_retry wget --no-check-certificate https://cmake.org/files/v3.3/cmake-3.3.2-Linux-x86_64.tar.gz
+  # this is optional, but useful:
+  # do a quick md5 check to ensure that the archive we downloaded did not get compromised
+  - echo "f3546812c11ce7f5d64dc132a566b749 *cmake-3.3.2-Linux-x86_64.tar.gz" > cmake_md5.txt
+  - md5sum -c cmake_md5.txt
+  # extract the binaries; the output here is quite lengthy,
+  # so we swallow it to not clutter up the travis console
+  - tar -xvf cmake-3.3.2-Linux-x86_64.tar.gz > /dev/null
+  - mv cmake-3.3.2-Linux-x86_64 cmake-install
+  # add both the top-level directory and the bin directory from the archive
+  # to the system PATH. By adding it to the front of the path we hide the
+  # preinstalled CMake with our own.
+  - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
+  # don't forget to switch back to the main build directory once you are done
+  - cd ${TRAVIS_BUILD_DIR}
+
+    # install gappa (for EPA)
+  - mkdir gappa
+  - cd gappa
+  - wget https://github.com/lczech/gappa/archive/master.zip
+  - unzip master.zip
+  - cd gappa-master
+  - make
+  - cd ..
+  - cd ..
+
+    # raxml-ng
+  - mkdir RAxML-ng
+  - cd RAxML-ng
+  -  wget https://github.com/amkozlov/raxml-ng/releases/download/0.9.0/raxml-ng_v0.9.0_linux_x86_64_MPI.zip
+  - unzip raxml-ng_v0.9.0_linux_x86_64_MPI.zip
+  - sudo apt-get install flex bison libgmp3-dev
+
+  - mkdir build && cd build
+  - cmake -DUSE_MPI=ON ..
+  - make
+  - cd ..
+
+  - rm -r build
+  - mkdir build && cd build
+  - cmake ..
+  - make
+  - cd ..
+  - cd bin
+  - echo export PATH="$PATH:$(pwd)" >> ~/.bashrc
+  - cd ..
+  - cd ..
+
+    # install modeltest-ng
+  - mkdir modeltest-ng
+  - cd modeltest-ng
+  - wget https://github.com/ddarriba/modeltest/files/3790686/modeltest-ng-0.1.6.tar.gz
+  - tar -xvf modeltest-ng-0.1.6.tar.gz
+  - cd modeltest-ng-0.1.6/
+  - sudo apt-get install qt5-default
+  - ./build.sh
+
+
+install:
+  # install requirements of physcraper
+  - pip install --quiet -r requirements.txt
+  - pip install --quiet .
+
+# command to run tests
+script:
+  - wget 'https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'
+  - gunzip  -cd taxdump.tar.gz | (tar xvf - names.dmp nodes.dmp)
+  - mv *.dmp taxonomy/
+  - pytest tests/test_*
+
+after_success:
+  - curl -s https://codecov.io/bash | bash

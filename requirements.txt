@@ -1,0 +1,9 @@
+DateTime
+DendroPy
+configparser
+coverage>=4.4
+pandas
+biopython
+pytest
+/home/blubb/sync-TP-T470s/ncbiTAXONparser
+/home/blubb/sync-TP-T470s/PANDAS_phyfilter_v1/
