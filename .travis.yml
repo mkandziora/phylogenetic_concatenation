@@ -36,6 +36,7 @@ before_install:
   - cd modeltest-ng-0.1.6/
   - sudo apt-get install qt5-default
   - ./build.sh
+  - cd ..
 
 
 install:
