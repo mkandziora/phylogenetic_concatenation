@@ -18,15 +18,15 @@ before_install:
   - pip install --force-reinstall numpy==1.14.5
   - conda install -c bioconda raxml-ng
 
-    # install gappa (for EPA)
-  - mkdir gappa
-  - cd gappa
-  - wget https://github.com/lczech/gappa/archive/master.zip
-  - unzip master.zip
-  - cd gappa-master
-  - make
-  - cd ..
-  - cd ..
+#    # install gappa (for EPA)
+#  - mkdir gappa
+#  - cd gappa
+#  - wget https://github.com/lczech/gappa/archive/master.zip
+#  - unzip master.zip
+#  - cd gappa-master
+#  - make
+#  - cd ..
+#  - cd ..
 
     # install modeltest-ng
   - mkdir modeltest-ng
@@ -38,7 +38,7 @@ before_install:
   - ./build.sh
   - cd ..
   - cd ..
-
+  - pwd
 
 install:
   # install requirements of physcraper
