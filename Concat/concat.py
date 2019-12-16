@@ -559,34 +559,61 @@ class Concat(object):
             if nnodes is not None and ntasks is not None:
                 env_var = int(nnodes) * int(ntasks)
                 mpi = True
-            if starting_fn is None:
-                if mpi:
-                    print("run with mpi")
-                    subprocess.call(["mpiexec", "-n", "{}".format(env_var), "raxml-ng-mpi", '--parse',
-                                     '--all', "--msa", "{}".format(aln_fn), '--model', partition, '--bs-trees',
-                                     'autoMRE', '--seed', seed, "--threads", "{}".format(num_threads),
-                                     "--prefix", "concat_full"])
+            if self.config.update_tree is True:
+                if starting_fn is None:
+                    if mpi:
+                        print("run with mpi")
+                        subprocess.call(["mpiexec", "-n", "{}".format(env_var), "raxml-ng-mpi", '--parse',
+                                         '--all', "--msa", "{}".format(aln_fn), '--model', partition, '--bs-trees',
+                                         'autoMRE', '--seed', seed, "--threads", "{}".format(num_threads),
+                                         "--prefix", "concat_full"])
+                    else:
+                        print('run without mpi')
+                        subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn,
+                                         '--model', partition, '--bs-trees',
+                                         'autoMRE', '--seed', seed, "--threads", num_threads, "--prefix", 'concat_full'])
                 else:
-                    print('run without mpi')
-                    subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn,
-                                     '--model', partition, '--bs-trees',
-                                     'autoMRE', '--seed', seed, "--threads", num_threads, "--prefix", 'concat_full'])
+                    if mpi:
+                        print("run with mpi")
+                        subprocess.call(["mpiexec", "-n", "{}".format(env_var), "raxml-ng-mpi", '--parse',
+                                         '--all', "--msa", "{}".format(aln_fn), '--model', partition, '--bs-trees',
+                                         'autoMRE', '--seed', seed, "--threads", "{}".format(num_threads),
+                                         '--tree', starting_fn, "--prefix", "concat_full"])
+                    else:
+                        print('run without mpi')
+                        subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn, '--tree', starting_fn,
+                                         '--model', partition,  '--bs-trees',
+                                         'autoMRE', '--seed', seed, "--threads", num_threads, "--prefix", 'concat_full'])
+                subprocess.call(["raxml-ng-mpi", '--consense', 'MRE', '--tree', 'concat_full.raxml.bootstraps',
+                                 "--prefix", 'consMRE'])
+                subprocess.call(["raxml-ng-mpi", '--consense', 'STRICT', '--tree', 'concat_full.raxml.bootstraps',
+                                 "--prefix", 'consSTRICT'])
+                subprocess.call(["raxml-ng-mpi", '--consense', 'MR', '--tree', 'concat_full.raxml.bootstraps',
+                                 "--prefix", 'consMR'])
             else:
-                if mpi:
-                    print("run with mpi")
-                    subprocess.call(["mpiexec", "-n", "{}".format(env_var), "raxml-ng-mpi", '--parse',
-                                     '--all', "--msa", "{}".format(aln_fn), '--model', partition, '--bs-trees',
-                                     'autoMRE', '--seed', seed, "--threads", "{}".format(num_threads),
-                                     '--tree', starting_fn, "--prefix", "concat_full"])
+                todo = 'To update the data run the following command in your working directory.'
+                if starting_fn is None:
+                    cmd1 = "raxml-ng-mpi --all --msa {} --model {} --bs-trees autoMRE --seed {} --threads {} " \
+                           "--prefix concat_full".format(aln_fn, partition, seed, num_threads)
                 else:
-                    print('run without mpi')
-                    subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn, '--tree', starting_fn,
-                                     '--model', partition,  '--bs-trees',
-                                     'autoMRE', '--seed', seed, "--threads", num_threads, "--prefix", 'concat_full'])
-            subprocess.call(["raxml-ng-mpi", '--consense', 'MRE', '--tree', 'concat_full.raxml.bootstraps',
-                             "--prefix", 'consMRE'])
-            subprocess.call(["raxml-ng-mpi", '--consense', 'STRICT', '--tree', 'concat_full.raxml.bootstraps',
-                             "--prefix", 'consSTRICT'])
-            subprocess.call(["raxml-ng-mpi", '--consense', 'MR', '--tree', 'concat_full.raxml.bootstraps',
-                             "--prefix", 'consMR'])
+                    cmd1 = "raxml-ng-mpi --all --msa {} --tree {} --model {} --bs-trees autoMRE '--seed {} " \
+                           "--threads {} --prefix concat_full".format(aln_fn, starting_fn, partition, seed, num_threads)
+
+                cmd2 = "raxml-ng-mpi --consense MRE --tree concat_full.raxml.bootstraps --prefix consMRE"
+                cmd3 = "raxml-ng-mpi --consense STRICT --tree concat_full.raxml.bootstraps --prefix consSTRICT"
+                cmd4 = "raxml-ng-mpi --consense MR --tree concat_full.raxml.bootstraps --prefix consMR"
+
+                print(todo)
+                print(cmd1)
+                print(cmd2)
+                print(cmd3)
+                print(cmd4)
+
+                lfd = os.path.join(self.workdir, "logfile")
+                with open(lfd, "a") as log:
+                    log.write("{}\n".format(todo))
+                    log.write("{}\n".format(cmd1))
+                    log.write("{}\n".format(cmd2))
+                    log.write("{}\n".format(cmd3))
+                    log.write("{}\n".format(cmd4))
 

@@ -14,6 +14,8 @@ configfi = "data/concat.config"  # configuration file
 
 config = concat_config.ConcatConfigObj(configfi, workdir_comb)
 config.backbone = True
+config.update_tree = False
+
 
 spn_id_list = {"ITS": "data/Senecio_its/tipname_spn.csv",
             "ETS": "data/Senecio_ets/tipname_spn.csv"

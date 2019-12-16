@@ -53,6 +53,11 @@ class ConcatConfigObj(object):
             self.backbone = True
         else:
             self.backbone = False
+        self.update_tree = config["concat"]["update_tree"]
+        if self.update_tree == "True" or self.update_tree == "true":
+            self.update_tree = True
+        else:
+            self.update_tree = False
 
         self.ncbi_parser_nodes_fn = config["ncbi_parser"]["nodes_fn"]
         self.ncbi_parser_names_fn = config["ncbi_parser"]["names_fn"]
