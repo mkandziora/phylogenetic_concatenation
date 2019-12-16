@@ -129,6 +129,7 @@ def clean_aln(aln_fn):
 # todo-done: use start tree for raxml
 # todo: user concat table option, instead of random per taxid
 
+
 class Concat(object):
     """Combines several single runs into a concatenated alignment and calculates a phylogeny.
 
@@ -148,7 +149,6 @@ class Concat(object):
         self.loci data: trees per locus
         self.concatenated_aln = concatenated alignment
         self.del_columns = list of columns that were deleted because of gap only characters
-        self.del_col_dict:
     """
 
     def __init__(self, config, workdir_comb):
@@ -160,7 +160,6 @@ class Concat(object):
         self.locus_len = {}
         self.loci_data = {}
         self.concatenated_aln = None
-        self.del_col_dict = {}  # helper for next self-object
         self.del_columns = []  # contains info which alignment bases were deleted, through gap only
         self.counter = 0
         self.max_locus = {}  # contains name of the locus with most sequences in concatenation
@@ -244,15 +243,17 @@ class Concat(object):
             shutil.copy(os.path.join(self.workdir, 'concat_nogap.fas.part.{}'.format(file_extension)),
                         os.path.join(self.workdir, 'partition'))
             num_threads = estimate_number_threads_raxml(self.workdir, 'concat_nogap.fas', 'DNA')
+        print(self.config.update_tree)
         if self.config.backbone is False:
             self.calculate_bootstrap_ng(num_threads)
             if self.config.update_tree:
-                self.write_labelled('RAxML_bestTree.autoMRE_fa')
+                replace_uid_with_name(os.path.join(self.config.workdir, 'RAxML_bestTree.autoMRE_fa'), self.comb_table,
+                                      'tree')
         else:
             self.est_full_tree_ng(num_threads)
             if self.config.update_tree:
-                self.write_labelled('RAxML_bestTree.backbone_concat')
-        replace_uid_with_name(os.path.join(self.config.workdir, 'RAxML_bestTree.autoMRE_fa'), self.comb_table, 'tree')
+                replace_uid_with_name(os.path.join(self.config.workdir, 'RAxML_bestTree.backbone_concat'),
+                                      self.comb_table, 'tree')
 
     def make_comb_table(self):
         """
@@ -336,13 +337,7 @@ class Concat(object):
         https://stackoverflow.com/questions/28220301/python-remove-special-column-from-multiple-sequence-alignment
         """
         fn_begin = fn.split(".")[0]
-        # TODO MK: seems like self.del_col_dict is unused now. check and remove
-        self.del_col_dict = {}
-        if hasattr(self, 'del_columns'):
-            self.del_col_dict[fn_begin] = self.del_columns
-            self.del_columns = []
-        else:
-            self.del_columns = []
+        self.del_columns = []
         input_aln.write(path=os.path.join(self.workdir, fn), schema="fasta")
         aln = AlignIO.read(os.path.join(self.workdir, fn), mformat)
         n_row = float(len(aln))
@@ -433,27 +428,27 @@ class Concat(object):
         self.rm_gap_only(aln, "{}.fas".format(genename))
         return table
 
-    def write_labelled(self, tree_file):
-        """
-        write labelled  tree
-
-        :param tree_file: file name of tree file
-        :return:
-        """
-        tr_fn = os.path.join(self.workdir, tree_file)
-        with open(tr_fn, "r") as label_new:
-            new_tree = label_new.read()
-            concat_ids = self.comb_table['concat_id'].dropna().unique()
-            for item in concat_ids:
-                with open("{}_relabel".format(tr_fn), "wt") as fout:
-                    current_id = "concat_{}:".format(str(item).split('.')[0])
-                    assert len(self.comb_table.loc[self.comb_table['concat_id'] == item, 'ncbi_txn'].unique()) == 1, \
-                        self.comb_table.loc[self.comb_table['concat_id'] == item, 'ncbi_txn']
-                    spn = self.comb_table.loc[self.comb_table['concat_id'] == item,
-                                              'ncbi_txn'].to_list()[0].replace(" ", "_")
-                    new_id = "{}_{}".format(spn, current_id)
-                    new_tree = new_tree.replace(current_id, new_id)
-                    fout.write(new_tree)
+    # def write_labelled(self, tree_file):
+    #     """
+    #     write labelled  tree
+    #
+    #     :param tree_file: file name of tree file
+    #     :return:
+    #     """
+    #     tr_fn = os.path.join(self.workdir, tree_file)
+    #     with open(tr_fn, "r") as label_new:
+    #         new_tree = label_new.read()
+    #         concat_ids = self.comb_table['concat_id'].dropna().unique()
+    #         for item in concat_ids:
+    #             with open("{}_relabel".format(tr_fn), "wt") as fout:
+    #                 current_id = "concat_{}:".format(str(item).split('.')[0])
+    #                 assert len(self.comb_table.loc[self.comb_table['concat_id'] == item, 'ncbi_txn'].unique()) == 1, \
+    #                     self.comb_table.loc[self.comb_table['concat_id'] == item, 'ncbi_txn']
+    #                 spn = self.comb_table.loc[self.comb_table['concat_id'] == item,
+    #                                           'ncbi_txn'].to_list()[0].replace(" ", "_")
+    #                 new_id = "{}_{}".format(spn, current_id)
+    #                 new_tree = new_tree.replace(current_id, new_id)
+    #                 fout.write(new_tree)
 
     def get_starting_tree(self):
         """
@@ -465,28 +460,29 @@ class Concat(object):
         print('get starting tree')
         starting_tree_fn = self.loci_data[self.max_locus]['tre']
         tre_schema = self.loci_data[self.max_locus]['schema']
-        tree = Tree.get(path=starting_tree_fn, schema=tre_schema, preserve_underscores=True)
-        seq_present = self.comb_table[self.comb_table['locus'] == self.max_locus]
-        seq_present = seq_present[seq_present['status'] != -500]
-        tree_label = list(taxon.label for taxon in tree.taxon_namespace)
-        for tipname in tree_label:
-            if tipname not in seq_present['accession'].to_list():
-                tree.prune_taxa([tipname])
-                tree.prune_taxa_with_labels([tipname])
-                tree.prune_taxa_with_labels([tipname])
-        tree.write(path=os.path.join(self.workdir, 'tmp.tre'),
-                   schema='newick', unquoted_underscores=True, suppress_rooting=True)
-        with open(os.path.join(self.workdir, 'tmp.tre'), "r") as label_new:
-            new_tree = label_new.read()
-            with open(os.path.join(self.workdir, "starting.tre"), "wt") as fout:
-                for tipname in tree.taxon_namespace:
-                    if tipname.label in seq_present['accession'].to_list():
-                        row = seq_present[seq_present['accession'] == tipname.label]
-                        conc_id = str(seq_present.loc[row.index, 'concat_id'].values[0]).split('.')[0]
-                        concat_id = "concat_{}".format(conc_id)
-                        if tipname.label in new_tree:
-                            new_tree = new_tree.replace(tipname.label, concat_id)
-                fout.write(new_tree)
+        if starting_tree_fn is not None:
+            tree = Tree.get(path=starting_tree_fn, schema=tre_schema, preserve_underscores=True)
+            seq_present = self.comb_table[self.comb_table['locus'] == self.max_locus]
+            seq_present = seq_present[seq_present['status'] != -500]
+            tree_label = list(taxon.label for taxon in tree.taxon_namespace)
+            for tipname in tree_label:
+                if tipname not in seq_present['accession'].to_list():
+                    tree.prune_taxa([tipname])
+                    tree.prune_taxa_with_labels([tipname])
+                    tree.prune_taxa_with_labels([tipname])
+            tree.write(path=os.path.join(self.workdir, 'tmp.tre'),
+                       schema='newick', unquoted_underscores=True, suppress_rooting=True)
+            with open(os.path.join(self.workdir, 'tmp.tre'), "r") as label_new:
+                new_tree = label_new.read()
+                with open(os.path.join(self.workdir, "starting.tre"), "wt") as fout:
+                    for tipname in tree.taxon_namespace:
+                        if tipname.label in seq_present['accession'].to_list():
+                            row = seq_present[seq_present['accession'] == tipname.label]
+                            conc_id = str(seq_present.loc[row.index, 'concat_id'].values[0]).split('.')[0]
+                            concat_id = "concat_{}".format(conc_id)
+                            if tipname.label in new_tree:
+                                new_tree = new_tree.replace(tipname.label, concat_id)
+                    fout.write(new_tree)
 
     def est_full_tree_ng(self, num_threads=2):
         """Full raxml run from the placement tree as starting tree.
@@ -495,21 +491,16 @@ class Concat(object):
         seed = random.randint(1, 21)
         num_threads = str(num_threads)
         if self.config.backbone is True:
-            # starting_tree_fn = self.loci_data[self.max_locus]
             self.get_starting_tree()
-            starting_tree_fn = 'starting.tre'
-
-            # starting_tree_fn = "starting_red.tre"
             namefix = 'backbone_concat'
-        elif os.path.exists("place_resolve.tre"):
-            starting_tree_fn = "place_resolve.tre"
-            namefix = 'concat'
         else:
-            # starting_tree_fn = self.loci_data[self.max_locus]
-            # starting_tree_fn = "starting_red.tre"
             self.get_starting_tree()
-            starting_tree_fn = 'starting.tre'
             namefix = 'concat'
+        if os.path.exists('starting.tre'):
+            starting_tree_fn = 'starting.tre'
+        else:
+            starting_tree_fn = None
+
         with cd(self.workdir):
             if os.path.exists("concat_nogap.fas.reduced") and os.path.exists("partition.reduced"):
                 aln = "concat_nogap.fas.reduced"
@@ -517,25 +508,52 @@ class Concat(object):
             else:
                 aln = "concat_nogap.fas"
                 partition = "partition"
-
-            if self.config.backbone is not True:
-                print("no backbone")
-                subprocess.call(["raxml-ng-mpi",
-                                 "--threads", "{}".format(num_threads),
-                                 "--msa", aln,
-                                 '--model', partition,
-                                 "--tree", starting_tree_fn,
-                                 "--seed", "{}".format(seed),
-                                 "--prefix", namefix])
+            if self.config.update_tree is True:
+                if starting_tree_fn is None:
+                    print("no starting tree")
+                    subprocess.call(["raxml-ng-mpi",
+                                     "--threads", "{}".format(num_threads),
+                                     "--msa", aln,
+                                     '--model', partition,
+                                     "--seed", "{}".format(seed),
+                                     "--prefix", namefix])
+                elif self.config.backbone is not True:
+                    print("no backbone")
+                    subprocess.call(["raxml-ng-mpi",
+                                     "--threads", "{}".format(num_threads),
+                                     "--msa", aln,
+                                     '--model', partition,
+                                     "--tree", starting_tree_fn,
+                                     "--seed", "{}".format(seed),
+                                     "--prefix", namefix])
+                else:
+                    print("backbone")
+                    subprocess.call(["raxml-ng-mpi",
+                                     "--threads", "{}".format(num_threads),
+                                     "--msa", aln,
+                                     '--model', partition,
+                                     "--tree-constraint", starting_tree_fn,
+                                     "--seed", "{}".format(seed),
+                                     "--prefix", namefix])
             else:
-                print("backbone")
-                subprocess.call(["raxml-ng-mpi",
-                                 "--threads", "{}".format(num_threads),
-                                 "--msa", aln,
-                                 '--model', partition,
-                                 "--tree-constraint", starting_tree_fn,
-                                 "--seed", "{}".format(seed),
-                                 "--prefix", namefix])
+                todo = 'To update the data run the following command in your working directory.'
+                if starting_tree_fn is None:
+                    cmd1 = "raxml-ng-mpi --msa {} --model {} --seed {} --threads {} " \
+                           "--prefix {}".format(aln, partition, seed, num_threads, namefix)
+                elif self.config.backbone is not True:
+                    cmd1 = "raxml-ng-mpi --msa {} --model {} --tree {} --seed {} --threads {} " \
+                           "--prefix {}".format(aln, partition, starting_tree_fn, seed, num_threads, namefix)
+                else:
+                    cmd1 = "raxml-ng-mpi --msa {} --model {} --tree-constraint {} --seed {} --threads {} " \
+                           "--prefix {}".format(aln, partition, starting_tree_fn, seed, num_threads, namefix)
+
+                print(todo)
+                print(cmd1)
+
+                lfd = os.path.join(self.workdir, "logfile")
+                with open(lfd, "a") as log:
+                    log.write("{}\n".format(todo))
+                    log.write("{}\n".format(cmd1))
 
     def calculate_bootstrap_ng(self, num_threads=2):
         """Calculate bootstrap and consensus trees using raxml-ng.
@@ -571,9 +589,9 @@ class Concat(object):
                                          "--prefix", "concat_full"])
                     else:
                         print('run without mpi')
-                        subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn,
-                                         '--model', partition, '--bs-trees',
-                                         'autoMRE', '--seed', seed, "--threads", num_threads, "--prefix", 'concat_full'])
+                        subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn, '--model', partition, '--bs-trees',
+                                         'autoMRE', '--seed', seed, "--threads", num_threads, "--prefix",
+                                         'concat_full'])
                 else:
                     if mpi:
                         print("run with mpi")
@@ -583,9 +601,9 @@ class Concat(object):
                                          '--tree', starting_fn, "--prefix", "concat_full"])
                     else:
                         print('run without mpi')
-                        subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn, '--tree', starting_fn,
-                                         '--model', partition,  '--bs-trees',
-                                         'autoMRE', '--seed', seed, "--threads", num_threads, "--prefix", 'concat_full'])
+                        subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn, '--tree', starting_fn, '--model',
+                                         partition,  '--bs-trees', 'autoMRE', '--seed', seed, "--threads", num_threads,
+                                         "--prefix", 'concat_full'])
                 subprocess.call(["raxml-ng-mpi", '--consense', 'MRE', '--tree', 'concat_full.raxml.bootstraps',
                                  "--prefix", 'consMRE'])
                 subprocess.call(["raxml-ng-mpi", '--consense', 'STRICT', '--tree', 'concat_full.raxml.bootstraps',
@@ -598,7 +616,7 @@ class Concat(object):
                     cmd1 = "raxml-ng-mpi --all --msa {} --model {} --bs-trees autoMRE --seed {} --threads {} " \
                            "--prefix concat_full".format(aln_fn, partition, seed, num_threads)
                 else:
-                    cmd1 = "raxml-ng-mpi --all --msa {} --tree {} --model {} --bs-trees autoMRE '--seed {} " \
+                    cmd1 = "raxml-ng-mpi --all --msa {} --tree {} --model {} --bs-trees autoMRE --seed {} " \
                            "--threads {} --prefix concat_full".format(aln_fn, starting_fn, partition, seed, num_threads)
 
                 cmd2 = "raxml-ng-mpi --consense MRE --tree concat_full.raxml.bootstraps --prefix consMRE"
