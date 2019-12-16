@@ -460,7 +460,7 @@ class Concat(object):
         print('get starting tree')
         starting_tree_fn = self.loci_data[self.max_locus]['tre']
         tre_schema = self.loci_data[self.max_locus]['schema']
-        if starting_tree_fn is not None:
+        if starting_tree_fn is not "None" or starting_tree_fn is not None:
             tree = Tree.get(path=starting_tree_fn, schema=tre_schema, preserve_underscores=True)
             seq_present = self.comb_table[self.comb_table['locus'] == self.max_locus]
             seq_present = seq_present[seq_present['status'] != -500]
