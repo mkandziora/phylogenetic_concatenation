@@ -246,10 +246,12 @@ class Concat(object):
             num_threads = estimate_number_threads_raxml(self.workdir, 'concat_nogap.fas', 'DNA')
         if self.config.backbone is False:
             self.calculate_bootstrap_ng(num_threads)
-            self.write_labelled('RAxML_bestTree.autoMRE_fa')
+            if self.config.update_tree:
+                self.write_labelled('RAxML_bestTree.autoMRE_fa')
         else:
             self.est_full_tree_ng(num_threads)
-            self.write_labelled('RAxML_bestTree.backbone_concat')
+            if self.config.update_tree:
+                self.write_labelled('RAxML_bestTree.backbone_concat')
         replace_uid_with_name(os.path.join(self.config.workdir, 'RAxML_bestTree.autoMRE_fa'), self.comb_table, 'tree')
 
     def make_comb_table(self):

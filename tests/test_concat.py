@@ -4,7 +4,7 @@ aln_its = 'data/Senecio_its/updt_aln.fasta'
 aln_ets = 'data/Senecio_ets/updt_aln.fasta'
 aln_schema = 'fasta'
 
-tre_its = 'data/Senecio_its/updt_tre.tre'
+tre_its = None
 tre_ets = 'data/Senecio_ets/updt_tre.tre'
 tre_schema = 'newick'
 
