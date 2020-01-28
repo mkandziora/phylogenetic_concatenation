@@ -247,7 +247,11 @@ class Concat(object):
         if self.config.backbone is False:
             self.calculate_bootstrap_ng(num_threads)
             if self.config.update_tree:
-                replace_uid_with_name(os.path.join(self.config.workdir, 'RAxML_bestTree.autoMRE_fa'), self.comb_table,
+                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.bestTree'), self.comb_table,
+                                      'tree')
+                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.bootstraps'), self.comb_table,
+                                      'tree')
+                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.support'), self.comb_table,
                                       'tree')
         else:
             self.est_full_tree_ng(num_threads)
@@ -305,7 +309,7 @@ class Concat(object):
                 max_seqs = amnt_seq_concat_per_locus
                 max_locus = locus
         self.max_locus = max_locus
-        self.comb_table.to_csv(os.path.join(self.workdir, 'concattable.txt'))
+        self.comb_table.to_csv(os.path.join(self.workdir, 'concattable.txt'), index=False)
 
     def write_concat_aln(self):
         """
