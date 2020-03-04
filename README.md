@@ -26,7 +26,7 @@ make sure the programs are accessible from everywhere, thus add them to your PAT
 * as a normal package: `wget https://github.com/blubbundbla/Concat.git`
 * as a git repository: `git clone 'git@github.com:blubbundbla/Concat.git'`
 
-#### 2.b) install a virtual environment
+#### 2.b) optional: install a virtual environment
   This is very useful if you want to run it on a cluster and/or do not want to change already installed python packages on your computer.
   A virtual environment will locally install the packages needed.
 

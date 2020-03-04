@@ -608,6 +608,8 @@ class Concat(object):
                         subprocess.call(["raxml-ng-mpi", '--all', "--msa", aln_fn, '--tree', starting_fn, '--model',
                                          partition,  '--bs-trees', 'autoMRE', '--seed', seed, "--threads", num_threads,
                                          "--prefix", 'concat_full'])
+                #subprocess.call(["raxml-ng-mpi", '--support', '--tree', 'concat_full.raxml.bestTree', '--bs-trees',
+                #                 'concat_full.raxml.bootstraps', "--prefix", 'support'])
                 subprocess.call(["raxml-ng-mpi", '--consense', 'MRE', '--tree', 'concat_full.raxml.bootstraps',
                                  "--prefix", 'consMRE'])
                 subprocess.call(["raxml-ng-mpi", '--consense', 'STRICT', '--tree', 'concat_full.raxml.bootstraps',
@@ -622,7 +624,6 @@ class Concat(object):
                 else:
                     cmd1 = "raxml-ng-mpi --all --msa {} --tree {} --model {} --bs-trees autoMRE --seed {} " \
                            "--threads {} --prefix concat_full".format(aln_fn, starting_fn, partition, seed, num_threads)
-
                 cmd2 = "raxml-ng-mpi --consense MRE --tree concat_full.raxml.bootstraps --prefix consMRE"
                 cmd3 = "raxml-ng-mpi --consense STRICT --tree concat_full.raxml.bootstraps --prefix consSTRICT"
                 cmd4 = "raxml-ng-mpi --consense MR --tree concat_full.raxml.bootstraps --prefix consMR"
