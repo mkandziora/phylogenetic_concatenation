@@ -22,23 +22,10 @@ make sure the programs are accessible from everywhere, thus add them to your PAT
 
 (! set PATH=%PATH%:  it takes the current path and sets PATH to it.)
 
-#### 2.a) download Concat using the command line:
+#### 2. download Concat using the command line:
 * as a normal package: `wget https://github.com/blubbundbla/Concat.git`
 * as a git repository: `git clone 'git@github.com:blubbundbla/Concat.git'`
 
-#### 2.b) optional: install a virtual environment
-  This is very useful if you want to run it on a cluster and/or do not want to change already installed python packages on your computer.
-  A virtual environment will locally install the packages needed.
-
-  `pip install virtualenv` 
-  `virtualenv -p python3 NameOfYourENV`  # you may need to just say `python` instead of `python3`, depending on your system
-
-  To use the virtual machine you need to activate it before doing anything else. 
-  This needs to be done before you start installing software in your virtual machine.
-
-  `source NameOfYourENV/bin/activate`
-
-  and to deactivate it: `deactivate`
 
 #### 3. install python requirements and dependencies:
 
@@ -46,15 +33,6 @@ run from within the Concat main folder:
 
 * `python setup.py install`
 * `pip install -r requirements.txt`
-
-#### 4. install a local instance of the BLAST taxonomy database: 
-
-Should be done automatically. If not follow description below.
-   
-   *  `wget 'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'`
-   *  `gunzip  -cd taxdump.tar.gz | (tar xvf - names.dmp nodes.dmp)`  
-   *  move files into `tests/data/`
-   *  `rm taxdump.tar.gz`
 
    
 ### Set up a run
