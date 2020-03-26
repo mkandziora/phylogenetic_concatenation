@@ -242,17 +242,17 @@ class Concat(object):
             file_extension = self.config.subst_model_criteria.lower()
             shutil.copy(os.path.join(self.workdir, 'concat_nogap.fas.part.{}'.format(file_extension)),
                         os.path.join(self.workdir, 'partition'))
-            num_threads = estimate_number_threads_raxml(self.workdir, 'concat_nogap.fas', 'DNA')
+        num_threads = estimate_number_threads_raxml(self.workdir, 'concat_nogap.fas', 'DNA')
         print(self.config.update_tree)
         if self.config.backbone is False:
             self.calculate_bootstrap_ng(num_threads)
             if self.config.update_tree:
-                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.bestTree'), self.comb_table,
-                                      'tree')
-                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.bootstraps'), self.comb_table,
-                                      'tree')
-                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.support'), self.comb_table,
-                                      'tree')
+                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.bestTree'),
+                                      self.comb_table, 'tree')
+                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.bootstraps'),
+                                      self.comb_table, 'tree')
+                replace_uid_with_name(os.path.join(self.config.workdir, 'concat_full.raxml.support'),
+                                      self.comb_table, 'tree')
         else:
             self.est_full_tree_ng(num_threads)
             if self.config.update_tree:
