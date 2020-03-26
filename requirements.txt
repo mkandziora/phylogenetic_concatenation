@@ -6,5 +6,5 @@ pandas
 biopython
 pytest
 
--e git://github.com/blubbundbla/PhylUp_remote.git
--e git://github.com/blubbundbla/ncbiTAXONparser.git
+-e git://github.com/blubbundbla/PhylUp_remote.git#egg=PhylUp_remote
+-e git://github.com/blubbundbla/ncbiTAXONparser.git#egg=ncbiTAXONparser
