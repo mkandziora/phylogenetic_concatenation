@@ -163,6 +163,8 @@ class Concat(object):
         self.del_columns = []  # contains info which alignment bases were deleted, through gap only
         self.counter = 0
         self.max_locus = {}  # contains name of the locus with most sequences in concatenation
+        with open(os.path.join(self.workdir, "logfile"), "w+") as log:
+            log.write("{Concatenation:}\n")
 
     def get_len_aln(self):
         """
@@ -221,6 +223,7 @@ class Concat(object):
                 aln = DnaCharacterMatrix.get(path=aln_fn, schema='fasta')
                 table = add_alignedseq_to_table(aln, table)
                 self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
+                assert self.comb_table.index.is_unique, ('Index is not unique')
         self.calc_concat()
 
     def calc_concat(self):
