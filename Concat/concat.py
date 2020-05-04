@@ -127,7 +127,7 @@ def clean_aln(aln_fn):
 # todo-done: make sure backbone run functions
 # todo-done: implement which substitution model for which locus
 # todo-done: use start tree for raxml
-# todo: user concat table option, instead of random per taxid
+# todo-done: user concat table option, instead of random per taxid
 
 
 class Concat(object):
@@ -207,7 +207,7 @@ class Concat(object):
                 self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
         self.calc_concat()
 
-    def run_phylup(self, genelistdict):
+    def run_phylup(self, genelistdict, self_select=False):
         """
         This is the main method to concatenate different runs into a single alignment and tree.
 
@@ -224,9 +224,28 @@ class Concat(object):
                 table = add_alignedseq_to_table(aln, table)
                 self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
                 assert self.comb_table.index.is_unique, ('Index is not unique')
-        self.calc_concat()
+        self.calc_concat(self_select)
 
-    def calc_concat(self):
+    def write_comb_table(self, genelistdict):
+        """
+        This is the main method to concatenate different runs into a single alignment and tree.
+
+        :param genelistdict:  dict with gene names as key and the corresponding workdir
+        :return:
+        """
+        # self.concatfile = user_concat_fn
+
+        for item in genelistdict.keys():
+            table = self.load_single_genes(genelistdict[item], item)
+            table['locus'] = item
+            aln_fn = os.path.join(self.workdir, "{}_nogap.fas".format(item))
+            aln = DnaCharacterMatrix.get(path=aln_fn, schema='fasta')
+            table = add_alignedseq_to_table(aln, table)
+            self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
+            assert self.comb_table.index.is_unique, ('Index is not unique')
+            self.comb_table.to_csv(os.path.join(self.workdir, 'concattable_selfselect.txt'), index=False)
+
+    def calc_concat(self, self_select):
         """
         Main function to concatenate different alignments and to calculate a concatenated tree.
 
@@ -234,7 +253,16 @@ class Concat(object):
         """
         if not os.path.exists(os.path.join(self.workdir, "concat_full.raxml*")):
             self.get_len_aln()  #
-            self.make_comb_table()
+            if self_select == False:
+                self.make_comb_table()
+            else:
+                self.comb_table = pd.read_csv(os.path.join(self.workdir, 'concattable_selfselect.txt'))
+                assert 'concat_id' in self.comb_table.columns, self.comb_table.columns
+                self.comb_table['concat_id'] = self.comb_table['concat_id'].astype('Int64')
+                self.counter = self.comb_table['concat_id'].max()
+                assert self.comb_table['concat_id'].isnull().values.any()
+                self.comb_table.loc[(self.comb_table['concat_id'].isnull()), 'status'] = -500
+
             self.write_concat_aln()
             self.concatenated_aln = clean_aln(os.path.join(self.workdir, 'concat.fasta'))
             self.rm_gap_only(self.concatenated_aln, "concat.fasta")
@@ -278,26 +306,17 @@ class Concat(object):
             avg_num = sum(num_per_loci) / len(num_per_loci)
             max_count = 0  # counter for self.counter
             for i in loci:
-                count = 0
                 data_locus = data[data['locus'] == i]
-                if len(data_locus) >= int(avg_num) and len(data_locus) > 0:
-                    seq_to_concat = data_locus.sample(int(avg_num))
-                    dropped = data_locus.drop(seq_to_concat.index.tolist())
-                    for idx in dropped.index:
-                        self.comb_table.loc[idx, 'status'] = -500
-                        self.comb_table.loc[idx, 'status_note'] = 'too many seqs for locus'
-                elif len(data_locus) < int(avg_num):
-                    seq_to_concat = data_locus
-                elif int(avg_num) <= 0.5:  # if sample is very small - not many seq for sp avail
-                    if len(data_locus) >= 1:
-                        seq_to_concat = data_locus.sample(1)
-                    else:
-                        seq_to_concat = pd.DataFrame()  # is needed to overwrite old seq_to_concat
-                for idx in seq_to_concat.index:
-                    count += 1
-                    self.comb_table.loc[idx, 'concat_id'] = self.counter + count
-                    self.comb_table.loc[idx, 'status'] = 500
-                    self.comb_table.loc[idx, 'status_note'] = 'used in concat'
+                count = 0
+                if data_locus['status_note'].str.contains('unpublished').any():
+                    unpublished = data_locus[data_locus['status_note'] == 'unpublished']
+                    published = data_locus[data_locus['status_note'] != 'unpublished']
+
+                    count = self.select_for_concat(avg_num, unpublished, count)
+                    count = self.select_for_concat(avg_num, published, count)
+                else:
+                    count = self.select_for_concat(avg_num, data_locus, count)
+
                 if max_count < count:
                     max_count = count
             self.counter += max_count
@@ -314,26 +333,62 @@ class Concat(object):
         self.max_locus = max_locus
         self.comb_table.to_csv(os.path.join(self.workdir, 'concattable.txt'), index=False)
 
+    def select_for_concat(self, avg_num, data_locus, count):
+        """
+        Select which sequences shall be used for concatenation.
+
+        :param avg_num:
+        :param data_locus:
+        :param count:
+        :return:
+        """
+
+        full_val = int(avg_num)
+        if full_val == 0:
+            full_val = 1
+        if len(data_locus) >= full_val and len(data_locus) > 0:
+            seq_to_concat = data_locus.sample(full_val)
+            dropped = data_locus.drop(seq_to_concat.index.tolist())  # remove segs that are used
+            for idx in dropped.index:
+                self.comb_table.loc[idx, 'status'] = -500
+                self.comb_table.loc[idx, 'status_note'] = 'too many seqs for locus'
+        elif len(data_locus) < int(avg_num):
+            seq_to_concat = data_locus
+        elif int(avg_num) <= 0.5:  # if sample is very small - not many seq for sp avail
+            if len(data_locus) >= 1:
+                seq_to_concat = data_locus.sample(1)
+            else:
+                seq_to_concat = pd.DataFrame()  # is needed to overwrite old seq_to_concat
+        for idx in seq_to_concat.index:
+            count += 1
+            self.comb_table.loc[idx, 'concat_id'] = self.counter + count
+            self.comb_table.loc[idx, 'status'] = 500
+            self.comb_table.loc[idx, 'status_note'] = 'used in concat'
+
+        return count
+
     def write_concat_aln(self):
         """
         Write alignment of concatenated data - as file and for self.concatenated_aln.
 
         :return: self.concatenated_aln
         """
+        #print('write concat aln')
         loci = set(self.comb_table['locus'])
         with open(os.path.join(self.workdir, 'concat.fasta'), 'w') as the_file:
             for i in range(1, self.counter+1):
                 cid = '>concat_{}\n'.format(i)
                 row = cid
                 comb_seqs = self.comb_table[self.comb_table['concat_id'] == i]
-                for locus in loci:
-                    if comb_seqs['locus'].str.contains(locus).any():
-                        seq = comb_seqs[comb_seqs['locus'] == locus]['sseq'].values[0]
-                    else:
-                        seq = '-'*self.locus_len[locus]
-                    row = row + seq
-                row = row + '\n'
-                the_file.write(row)
+                if not comb_seqs.empty:
+                    for locus in loci:
+                        if comb_seqs['locus'].str.contains(locus).any():
+                            seq = comb_seqs[comb_seqs['locus'] == locus]['sseq'].values[0]
+                        else:
+                            seq = '-'*self.locus_len[locus]
+                        row = row + seq
+                    row = row + '\n'
+                    the_file.write(row)
         self.concatenated_aln = DnaCharacterMatrix.get(path=os.path.join(self.workdir, 'concat.fasta'), schema='fasta')
 
     def rm_gap_only(self, input_aln, fn="concat.fasta", mformat="fasta"):
