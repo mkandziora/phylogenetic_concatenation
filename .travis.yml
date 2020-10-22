@@ -49,6 +49,7 @@ install:
 script:
   - wget 'https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'
   - gunzip  -cd taxdump.tar.gz | (tar xvf - names.dmp nodes.dmp)
+  - mkdir taxonomy
   - mv *.dmp taxonomy/
   - pytest tests/test_*
 
