@@ -417,7 +417,7 @@ class Concat(object):
             first = True
 
             for i in range(1, self.counter + 1):
-                val = seq_locus[seq_locus['concat_id']==i]
+                val = seq_locus[seq_locus['concat_id'] == i]
                 if i in seq_locus['concat_id'].values:
                     seq = val['sseq'].values[0]
                     seq_len = len(seq)
