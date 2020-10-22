@@ -20,5 +20,6 @@ aln_list = {"ITS": aln_its,
 
 conc = concat.Concat(config, workdir_comb)
 conc = conc.run_fresh(aln_dict=aln_list, spn_dict=spn_id_list, schema=aln_schema)
+# conc = conc.run_phylup(genelistdict=aln_list, self_select=True)
 
 

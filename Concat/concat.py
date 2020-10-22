@@ -4,6 +4,10 @@ Copyright (C) 2019  Martha Kandziora
 martha.kandziora@yahoo.com
 
 Package to automatically concatenate single gene alignments and to calculate concatenated phylogeny.
+Process can be split into two:
+1. it will be checked which taxa and sequences are available and printed to file: 'concattable_selfselect.txt'.
+    This can be modified by the user, see example_concat_table.py
+2. the concatenated alignment file is being written: example_concat_table.py
 
 All classes and methods are distributed under the following license.
 
@@ -27,13 +31,15 @@ import subprocess
 import dendropy
 import random
 import shutil
+import math
+
 import pandas as pd
 from Bio import AlignIO, SeqIO
 from dendropy import DnaCharacterMatrix, Tree
 
 from . import cd
 from PhylUp.phylogenetic_helpers import estimate_number_threads_raxml, run_modeltest, \
-    build_table_from_file, replace_uid_with_name
+    build_table_from_file, replace_uid_with_name, check_align
 
 
 def trim(aln, workdir, taxon_missingness=0.8):  # slight modification from aln_updater trim
@@ -47,9 +53,6 @@ def trim(aln, workdir, taxon_missingness=0.8):  # slight modification from aln_u
     # print('in trim')
     i = 0
     seqlen = len(aln[i])
-    while seqlen == 0:
-        i = i + 1
-        seqlen = len(aln[i])
     for tax in aln:
         assert len(aln[tax]) == seqlen, "can't trim un-aligned inputs, moving on"
     start = 0
@@ -157,7 +160,6 @@ class Concat(object):
             os.makedirs(self.workdir)
         self.config = config
         self.comb_table = None
-        self.locus_len = {}
         self.loci_data = {}
         self.concatenated_aln = None
         self.del_columns = []  # contains info which alignment bases were deleted, through gap only
@@ -172,12 +174,17 @@ class Concat(object):
 
         :return:
         """
+        locus_len = {}
         loci = set(self.comb_table['locus'])
         for i in loci:
+            # aln_locus = DnaCharacterMatrix.get(path=os.path.join(self.workdir, '{}_nogap.fas'.format(i)),
+            #                                    schema='fasta')
+            # len_locus = len(aln_locus[1].symbols_as_string())
             len_locus = len(self.comb_table[self.comb_table['locus'] == i]['sseq'].values[0])
-            self.locus_len[i] = len_locus
+            locus_len[i] = len_locus
+        return locus_len
 
-    def run_fresh(self, aln_dict, spn_dict, schema='fasta', tre_dict=None, tre_schema=None):
+    def run_fresh(self, aln_dict, spn_dict, schema='fasta', tre_dict=None, tre_schema=None, self_select=True):
         """
         This is the main method to concatenate different runs into a single alignment and tree.
 
@@ -205,13 +212,14 @@ class Concat(object):
                 table = add_alignedseq_to_table(aln, table)
                 table['locus'] = locus
                 self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
-        self.calc_concat()
+        self.calc_concat(self_select)
 
     def run_phylup(self, genelistdict, self_select=False):
         """
         This is the main method to concatenate different runs into a single alignment and tree.
 
-        :param genelistdict:  dict with gene names as key and the corresponding workdir
+        :param self_select: T/F: True will read  in user supplied concatenation table.
+        :param genelistdict:  dictionary with gene names as key and the corresponding workdir
         :return:
         """
         # self.concatfile = user_concat_fn
@@ -223,26 +231,35 @@ class Concat(object):
                 aln = DnaCharacterMatrix.get(path=aln_fn, schema='fasta')
                 table = add_alignedseq_to_table(aln, table)
                 self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
+                print(self.comb_table)
                 assert self.comb_table.index.is_unique, ('Index is not unique')
         self.calc_concat(self_select)
 
-    def write_comb_table(self, genelistdict):
+    def write_comb_table(self, genelistdict, suggest):
         """
         This is the main method to concatenate different runs into a single alignment and tree.
 
-        :param genelistdict:  dict with gene names as key and the corresponding workdir
+        :param genelistdict:  dictionary with gene names as key and the corresponding workdir
         :return:
         """
         # self.concatfile = user_concat_fn
-
+        print(self.comb_table)
+        print(suggest)
         for item in genelistdict.keys():
             table = self.load_single_genes(genelistdict[item], item)
             table['locus'] = item
             aln_fn = os.path.join(self.workdir, "{}_nogap.fas".format(item))
             aln = DnaCharacterMatrix.get(path=aln_fn, schema='fasta')
             table = add_alignedseq_to_table(aln, table)
+            assert table.accession.is_unique,  table[table.duplicated(['accession'])]
+
             self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
+            print(self.comb_table)
+
             assert self.comb_table.index.is_unique, ('Index is not unique')
+        if suggest:
+            self.make_comb_table(suggest=suggest)
+        else:
             self.comb_table.to_csv(os.path.join(self.workdir, 'concattable_selfselect.txt'), index=False)
 
     def calc_concat(self, self_select):
@@ -254,16 +271,28 @@ class Concat(object):
         if not os.path.exists(os.path.join(self.workdir, "concat_full.raxml*")):
             self.get_len_aln()  #
             if self_select == False:
-                self.make_comb_table()
+                self.make_comb_table(suggest=False)
             else:
                 self.comb_table = pd.read_csv(os.path.join(self.workdir, 'concattable_selfselect.txt'))
                 assert 'concat_id' in self.comb_table.columns, self.comb_table.columns
+                loci_len = len(set(self.comb_table['locus']))
+                for concat_id in self.comb_table['concat_id']:
+                    # print(concat_id)
+                    if not math.isnan(concat_id):
+                        assert (self.comb_table['concat_id'] == concat_id).sum() <= loci_len, \
+                            (len(self.comb_table.loc[self.comb_table['concat_id'] == concat_id, 'accession']),
+                             loci_len, concat_id)
                 self.comb_table['concat_id'] = self.comb_table['concat_id'].astype('Int64')
                 self.counter = self.comb_table['concat_id'].max()
-                assert self.comb_table['concat_id'].isnull().values.any()
+                print(self.comb_table.loc[self.comb_table['concat_id'].isnull() == True, 'accession'])
+                print(self.comb_table.loc[self.comb_table['concat_id'].isna() == True, 'accession'])
+
+                # assert self.comb_table['concat_id'].isnull().values.any(),
+                #        self.comb_table['concat_id'].isnull().values.tolist()
                 self.comb_table.loc[(self.comb_table['concat_id'].isnull()), 'status'] = -500
 
             self.write_concat_aln()
+
             self.concatenated_aln = clean_aln(os.path.join(self.workdir, 'concat.fasta'))
             self.rm_gap_only(self.concatenated_aln, "concat.fasta")
             replace_uid_with_name(os.path.join(self.config.workdir, 'concat.fasta'), self.comb_table, 'aln')
@@ -274,6 +303,7 @@ class Concat(object):
             shutil.copy(os.path.join(self.workdir, 'concat_nogap.fas.part.{}'.format(file_extension)),
                         os.path.join(self.workdir, 'partition'))
         num_threads = estimate_number_threads_raxml(self.workdir, 'concat_nogap.fas', 'DNA')
+
         print(self.config.update_tree)
         if self.config.backbone is False:
             self.calculate_bootstrap_ng(num_threads)
@@ -290,11 +320,12 @@ class Concat(object):
                 replace_uid_with_name(os.path.join(self.config.workdir, 'RAxML_bestTree.backbone_concat'),
                                       self.comb_table, 'tree')
 
-    def make_comb_table(self):
+    def make_comb_table(self, suggest):
         """
         Adds the information to the table which data shall be combined.
 
         """
+        print(suggest)
         loci = set(self.comb_table['locus'])
         for txid in set(self.comb_table['ncbi_txid']):
             data = self.comb_table[self.comb_table['ncbi_txid'] == txid]
@@ -325,13 +356,16 @@ class Concat(object):
         max_locus = None
         for locus in set(self.comb_table['locus']):
             per_locus = self.comb_table[self.comb_table['locus'] == locus]
-            print(per_locus)
+            # print(per_locus)
             amnt_seq_concat_per_locus = len(per_locus[per_locus['concat_id'] != -500])
             if amnt_seq_concat_per_locus > max_seqs:
                 max_seqs = amnt_seq_concat_per_locus
                 max_locus = locus
         self.max_locus = max_locus
-        self.comb_table.to_csv(os.path.join(self.workdir, 'concattable.txt'), index=False)
+        if suggest:
+            self.comb_table.to_csv(os.path.join(self.workdir, 'concattable_selfselect.txt'), index=False)
+        else:
+            self.comb_table.to_csv(os.path.join(self.workdir, 'concattable.txt'), index=False)
 
     def select_for_concat(self, avg_num, data_locus, count):
         """
@@ -375,21 +409,64 @@ class Concat(object):
         """
         #print('write concat aln')
         loci = set(self.comb_table['locus'])
+
+        print('check len in file')
+        for locus in loci:
+            print(locus)
+            seq_locus = self.comb_table[self.comb_table['locus'] == locus]
+            first = True
+
+            for i in range(1, self.counter + 1):
+                val = seq_locus[seq_locus['concat_id']==i]
+                if i in seq_locus['concat_id'].values:
+                    seq = val['sseq'].values[0]
+                    seq_len = len(seq)
+                    if first == True:
+                        len_seqs = seq_len
+                        first = False
+                    else:
+                        name = val['accession'].values[0]
+                        assert len_seqs == seq_len, (name, len_seqs, seq_len)
+
         with open(os.path.join(self.workdir, 'concat.fasta'), 'w') as the_file:
             for i in range(1, self.counter+1):
                 cid = '>concat_{}\n'.format(i)
-                row = cid
+                row = ''
                 comb_seqs = self.comb_table[self.comb_table['concat_id'] == i]
                 if not comb_seqs.empty:
+                    print(cid)
                     for locus in loci:
-                        if comb_seqs['locus'].str.contains(locus).any():
+                        seq_locus = self.comb_table[self.comb_table['locus'] == locus]
+                        locus_len = self.get_len_aln()
+                        # aln_locus = DnaCharacterMatrix.get(path=os.path.join(self.workdir, '{}_nogap.fas'.format(locus)),
+                        #                                    schema='fasta')
+                        if locus in comb_seqs['locus'].values:
+                            # print(seq_locus[seq_locus['concat_id'] == i])
+                            # print(seq_locus[seq_locus['concat_id'] == i]['accession'].values)
+                            #if comb_seqs['locus'].str.contains(locus).any():
+                            # acc = comb_seqs[comb_seqs['locus'] == locus]['accession'].values[0]
+                            # found = False
+                            # for taxon, seq in aln_locus.items():
+                            #     if acc == taxon:
+                            #         seq = "{}".format(seq.symbols_as_string())
+                            #         found = True
+                            #
+                            # #assert found == True
+                            # print(locus)
+                            # print(seq)
                             seq = comb_seqs[comb_seqs['locus'] == locus]['sseq'].values[0]
                         else:
-                            seq = '-'*self.locus_len[locus]
-                        row = row + seq
-                    row = row + '\n'
+                            print('no seq')
+                            seq = '-'*locus_len[locus]
+                            # seq_len = len(seq)
+                        row = "{}{}".format(row, seq)
+                        assert len(seq) == locus_len[locus], (len(seq), locus_len[locus], locus)
+                    row = cid + row + '\n'
                     the_file.write(row)
         self.concatenated_aln = DnaCharacterMatrix.get(path=os.path.join(self.workdir, 'concat.fasta'), schema='fasta')
+        seq_len = check_align(self.concatenated_aln)
+
+        assert type(seq_len) == int, (type(seq_len), seq_len)
 
     def rm_gap_only(self, input_aln, fn="concat.fasta", mformat="fasta"):
         """
@@ -429,7 +506,8 @@ class Concat(object):
         return input_aln
 
     def write_partition_modeltest(self):
-        """Write the partitioning file for RAxML.
+        """
+        Write the partitioning file for RAxML.
 
         Takes the info from rm_gap_only to reduce the partition by the columns that have been removed.
         """
@@ -438,7 +516,8 @@ class Concat(object):
         shortend_len1 = 0
         loci = set(self.comb_table['locus'])
         for locus in loci:
-            org_len_gene = self.locus_len[locus]
+            locus_len = self.get_len_aln()
+            org_len_gene = locus_len[locus]
             if count == 0:  # used to delimit end of first loci - rest done under else
                 # subtract removed columns (rm_gap_only) from len_gene
                 # count number of cols which are smaller than len_gene
@@ -470,7 +549,8 @@ class Concat(object):
                     partition.write("DNA, {} = {}-{}\n".format(locus, start, end))
 
     def load_single_genes(self, workdir_singlerun, genename):
-        """Load PhylUp class objects and make a single dict per run.
+        """
+        Load PhylUp class objects and make a single dict per run.
 
         Removes abandoned nodes and gap only columns first.
 
@@ -481,6 +561,8 @@ class Concat(object):
         print("load_single_genes: {}".format(genename))
         fn = os.path.join(workdir_singlerun, 'updt_aln.fasta')
         aln = DnaCharacterMatrix.get(path=fn, schema="fasta")
+        seq_len = check_align(aln)
+        assert type(seq_len) == int, (type(seq_len), seq_len)
         aln.write(path=fn, schema='fasta')
         aln = clean_aln(fn)
         table = pd.read_csv(os.path.join(workdir_singlerun, 'table.updated'))
