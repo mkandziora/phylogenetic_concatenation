@@ -7,4 +7,4 @@ biopython
 pytest
 
 -e git://github.com/mkandziora/PhylUp.git#egg=PhylUp
--e git://github.com/mkandziora/ncbiTAXONparser.git#egg=ncbiTAXONparser
+#-e git://github.com/mkandziora/ncbiTAXONparser.git#egg=ncbiTAXONparser
