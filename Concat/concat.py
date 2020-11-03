@@ -211,6 +211,7 @@ class Concat(object):
                 table = build_table_from_file(spn_dict[locus], self.config)
                 table = add_alignedseq_to_table(aln, table)
                 table['locus'] = locus
+                table['status_note'] = 'concat run fresh'
                 self.comb_table = pd.concat([self.comb_table, table], ignore_index=True)
         self.calc_concat(self_select)
 
@@ -325,7 +326,7 @@ class Concat(object):
         Adds the information to the table which data shall be combined.
 
         """
-        print(suggest)
+        # print(suggest)
         loci = set(self.comb_table['locus'])
         for txid in set(self.comb_table['ncbi_txid']):
             data = self.comb_table[self.comb_table['ncbi_txid'] == txid]
@@ -634,12 +635,6 @@ class Concat(object):
         print("run full tree")
         seed = random.randint(1, 21)
         num_threads = str(num_threads)
-        if self.config.backbone is True:
-            self.get_starting_tree()
-            namefix = 'backbone_concat'
-        else:
-            self.get_starting_tree()
-            namefix = 'concat'
         if os.path.exists('starting.tre'):
             starting_tree_fn = 'starting.tre'
         else:
@@ -653,6 +648,13 @@ class Concat(object):
                 aln = "concat_nogap.fas"
                 partition = "partition"
             if self.config.update_tree is True:
+                if self.config.backbone is True:
+                    self.get_starting_tree()
+                    namefix = 'backbone_concat'
+                else:
+                    self.get_starting_tree()
+                    namefix = 'concat'
+
                 if starting_tree_fn is None:
                     print("no starting tree")
                     subprocess.call(["raxml-ng-mpi",
