@@ -297,12 +297,13 @@ class Concat(object):
             self.concatenated_aln = clean_aln(os.path.join(self.workdir, 'concat.fasta'))
             self.rm_gap_only(self.concatenated_aln, "concat.fasta")
             replace_uid_with_name(os.path.join(self.config.workdir, 'concat.fasta'), self.comb_table, 'aln')
-            self.write_partition_modeltest()  # used for estimate best subst model - needs DNA instead of subst model
-            partition_file = os.path.abspath(os.path.join(self.workdir, 'partition'))
-            run_modeltest('concat_nogap.fas', self.workdir, self.config.subst_model_criteria, partition_file)
-            file_extension = self.config.subst_model_criteria.lower()
-            shutil.copy(os.path.join(self.workdir, 'concat_nogap.fas.part.{}'.format(file_extension)),
-                        os.path.join(self.workdir, 'partition'))
+            if self.config.run_modeltest:
+                self.write_partition_modeltest()  # used for estimate best subst model - needs DNA instead of subst model
+                partition_file = os.path.abspath(os.path.join(self.workdir, 'partition'))
+                run_modeltest('concat_nogap.fas', self.workdir, self.config.subst_model_criteria, partition_file)
+                file_extension = self.config.subst_model_criteria.lower()
+                shutil.copy(os.path.join(self.workdir, 'concat_nogap.fas.part.{}'.format(file_extension)),
+                            os.path.join(self.workdir, 'partition'))
         num_threads = estimate_number_threads_raxml(self.workdir, 'concat_nogap.fas', 'DNA')
 
         print(self.config.update_tree)

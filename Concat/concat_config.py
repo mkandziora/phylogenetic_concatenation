@@ -44,6 +44,11 @@ class ConcatConfigObj(object):
         self.taxon_missingness = float(config["concat"]["taxon_missingness"])
         assert is_number(self.taxon_missingness), ("value `%s` does not exists" % self.taxon_missingness)
 
+        self.run_modeltest = config['concat']['run_modeltest']
+        if self.run_modeltest == "True" or self.run_modeltest == "true":
+            self.run_modeltest = True
+        else:
+            self.run_modeltest = False
         self.subst_model_criteria = config['concat']['modeltest_criteria']
         assert self.subst_model_criteria in ['AIC', 'AICc', 'BIC'], ("self.modeltest_criteria `%s` "
                                                                    "is not AIC, AICc or BIC" % self.subst_model_criteria)
