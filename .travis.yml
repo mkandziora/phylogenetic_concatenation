@@ -41,7 +41,7 @@ before_install:
   - pwd
 
 install:
-  # install requirements of physcraper
+  # install requirements
   - pip install --quiet -r requirements.txt
   - pip install --quiet .
 
@@ -49,8 +49,7 @@ install:
 script:
   - wget 'https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'
   - gunzip  -cd taxdump.tar.gz | (tar xvf - names.dmp nodes.dmp)
-  - mkdir taxonomy
-  - mv *.dmp taxonomy/
+  - mv *.dmp ./data/
   - pytest tests/test_*
 
 after_success:
