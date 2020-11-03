@@ -184,7 +184,7 @@ class Concat(object):
             locus_len[i] = len_locus
         return locus_len
 
-    def run_fresh(self, aln_dict, spn_dict, schema='fasta', tre_dict=None, tre_schema=None, self_select=True):
+    def run_fresh(self, aln_dict, spn_dict, schema='fasta', tre_dict=None, tre_schema=None, self_select=False):
         """
         This is the main method to concatenate different runs into a single alignment and tree.
 
