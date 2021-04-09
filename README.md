@@ -50,5 +50,5 @@ more sequences available for one locus.
  During the first step (see `example_concat_table.py`), suggested taxa to concatenate are written to the file 'concattable_selfselect.txt'. The association by `concat_id` can then be modified by the user. In the second step (see `example_concat_calc.py`), the concatenated alignment file is being written.
 3. The user specifies which sequences shall be concatenated in `concattable_selfselect.txt` and needs to enable the `suggest` and `select` option. For examples please refer to `example_concat_table.py`. 
 
-There is also a method available to run it in combination with the package [PhylUp](https://github.com/mkandziora/PhylUp.git).
+There is also a method available to run it in combination with the package [PhylUp](https://github.com/mkandziora/PhylUp.git): `example_concat_phylup.py`.
 
