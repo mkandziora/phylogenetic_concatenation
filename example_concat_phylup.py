@@ -15,5 +15,5 @@ config = concat_config.ConcatConfigObj(configfi, workdir_comb)
 
 conc = concat.Concat(config, workdir_comb)
 
-conc = conc.run_phylup(genelistdict=genelist)
+conc = conc.run_phylup(genelistdict=genelist, self_select=False)
 
